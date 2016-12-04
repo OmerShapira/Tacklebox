@@ -10,62 +10,6 @@ import toml
 from consts import consts
 
 
-class FileWrapper(object):
-    def __init__(self, path, mode, warn_if_created=False):
-        self.warn_if_created = warn_if_created
-        self.mode = mode
-        self.set_path(path)
-        self.handle = None
-
-    def set_path(self, path):
-        self.path = os.path.realpath(path)
-        self.dirname, self.filename = os.path.split(path)
-
-    def ensure_path_exists(self):
-        if os.path.exists(self.dirname):
-            return
-        try:
-            print "Making dirs: " + self.dirname
-            os.makedirs(self.dirname)
-        except IOError as E: #TODO (OS): not only possible error
-            raise
-
-    def exists(self):
-        return os.path.exists(self.path)
-
-    # def touch(self):
-    #     #TODO (OS): Needed?
-    #     if os.path.exists(self.path):
-    #         return
-    #     try:
-    #         self.ensure_path_exists()
-    #         handle = open(self.path)
-    #         handle.close()
-    #     except IOError as E:
-    #         raise
-
-    def delete(self):
-        return os.remove(self.path)
-
-    def rename(self, new_name):
-        new_path = os.path.realpath (os.path.join( self.path, new_name ))
-        if os.path.exists(new_path):
-            raise Exception("Can't rename to existing file")
-        if self.exists():
-            os.rename(self.path, new_path)
-        self.set_path(new_path)
-
-    def __enter__(self):
-        self.ensure_path_exists()
-        if self.warn_if_created:
-            print "Creating " + self.path
-        self.handle = open(self.path, self.mode)
-        return self.handle
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        self.handle.close()
-
-
 class Folder(object):
     def __init__(self, path):
         if os.path.isfile(path):
