@@ -28,8 +28,10 @@ def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(help="Options:")
 
-    parser_config = subparsers.add_parser('config', help="configure the project")
-    parser_config.add_argument('path', type=str)
+    parser_config = subparsers.add_parser('config', help="configure the project main repository")
+    parser_config.add_argument('repo', type=str, help="path to the repositotry")
+    parser_config.add_argument('--new', action='store_true', help="back up existing tacklebox definitions and create a new one")
+    parser_config.add_argument('--overwrite', action='store_true', help="remove existing configurations, if they exist, installing a new one. This option will delete the tacklebox project, but leave files in place")
     parser_config.set_defaults(func=config.config)
 
     parser_hook = subparsers.add_parser('hook', help="put an asset in place, backing up the old one, if it exists")

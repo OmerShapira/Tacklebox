@@ -25,6 +25,7 @@ class FileWrapper(object):
         if os.path.exists(self.dirname):
             return
         try:
+            print "Making dirs: " + self.dirname
             os.makedirs(self.dirname)
         except IOError as E: #TODO (OS): not only possible error
             raise
@@ -32,16 +33,16 @@ class FileWrapper(object):
     def exists(self):
         return os.path.exists(self.path)
 
-    def touch(self):
-        #TODO (OS): Needed?
-        if os.path.exists(self.path):
-            return
-        try:
-            self.ensure_path_exists()
-            handle = open(self.path)
-            handle.close()
-        except IOError as E:
-            raise
+    # def touch(self):
+    #     #TODO (OS): Needed?
+    #     if os.path.exists(self.path):
+    #         return
+    #     try:
+    #         self.ensure_path_exists()
+    #         handle = open(self.path)
+    #         handle.close()
+    #     except IOError as E:
+    #         raise
 
     def delete(self):
         return os.remove(self.path)
@@ -86,11 +87,11 @@ class Folder(object):
         parent = os.path.join(self.path, os.pardir)
         new_path = os.path.realpath(os.path.join(parent, new_name))
         #check that nothing in the new name exists
-        if new_path == self.path:
+        if os.path.relpath ( new_path, self.path ) == os.curdir:
             return
         if os.path.exists(new_path):
             #TODO (OS): Not sure which exception to raise
-            raise Exception("Path Exists")
+            raise Exception("Target for renaming to already exists: " + new_path)
         try:
             os.rename(self.path, new_path)
             self.path = new_path
@@ -116,9 +117,11 @@ class Folder(object):
 
 
 class UserConfigFolder(object):
-    """Docstrring for UserConfigFolder"""
-    def __init__(self, repo_path, path=None):
-        path = os.path.expanduser(consts.USER_CONFIG_HOME)
+    """Docstring for UserConfigFolder"""
+    def __init__(self, repo_path):
+        # The root will only be at the user root for now.
+        path = os.path.join(os.path.expanduser(consts.USER_CONFIG_HOME), consts.USER_CONFIG_FOLDER_NAME)
+
         self.folder = Folder(path)
         self.backup_folder_name = consts.BACKUP_DIR_NAME + consts.CONFIG_EXTENSION_CURRENT
         self.config_file_name = consts.USER_CONFIG_FILE_NAME
@@ -177,7 +180,7 @@ class UserConfigFolder(object):
         next_archived_backup = self.find_latest_backup_number() + 1
         # move config file into backup folder
         # TODO (OS): move config file into backup
-        archived_backup_folder_name = consts.BACKUP_DIR_NAME + "." + next_archived_backup
+        archived_backup_folder_name = "%s.%02d" % ( consts.BACKUP_DIR_NAME, next_archived_backup )
         master.rename(archived_backup_folder_name)
 
     def pop_backup(self):
@@ -241,8 +244,8 @@ class ConfigFile(MutableMapping):
     """Efficient disk-mapped TOML file wrapper"""
     def __init__(self, path):
         self.path = path
-        if not os.path.exists(path):
-            raise ValueError(path + "Doesn't exist")
+        # if not os.path.exists(path):
+            # raise ValueError(path + " Doesn't exist")
         self.__db = {}
         self.lock = True
         self.dirty = True
@@ -279,6 +282,9 @@ class ConfigFile(MutableMapping):
 
     def load(self):
         """Cache the file onto self.__db, and mark the time it was loaded"""
+        if not os.path.exists(self.path):
+            #TODO (OS): Figure out what to do here. 
+            return
         with open(self.path, 'r') as f:
             self.__db = toml.load(f)
             self.__last_load = time()
@@ -290,6 +296,8 @@ class ConfigFile(MutableMapping):
             self.__db = {}
 
     def is_stale(self):
+        if not self.exists():
+            return True
         return self.__last_load < os.path.getmtime(self.path)
 
     @contextmanager
@@ -319,12 +327,10 @@ class UserConfigFile(ConfigFile):
     '''refers to user config file only by name.
     performs atomic actions and keeps file closed.'''
     def __init__(self, config_folder, repo_path):
-        path = os.path.join(
-            self.path.expanduser(consts.USER_CONFIG_HOME),
-            consts.USER_CONFIG_FILE_NAME)
-        super(UserConfigFile, self).__init__(self, path)
-        #TODO (OS): remove coupling
         self.config_folder = config_folder
+        path = os.path.join( self.config_folder.folder.path, consts.USER_CONFIG_FILE_NAME)
+        super(UserConfigFile, self).__init__(path)
+        #TODO (OS): remove coupling
         self.repo_path = repo_path
 
     def create(self):
@@ -347,10 +353,10 @@ class UserConfigFile(ConfigFile):
             root = self['repo']['master']['root']
             assert is_git_repo(root), root + " is not a git repo"
         except AssertionError as E:
-            print "Error: " + E
+            print "Error: " + str(E)
             return False
-        except E:
-            print "Unknown Error: " + E
+        except ( ValueError, Exception ) as E:
+            print "Unknown Error: " + str( E )
             return False
         return True
 
