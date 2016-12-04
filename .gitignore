@@ -1,3 +1,10 @@
+# Omer's important stuff
+
+## Emacs
+notes.org
+todos.org
+*.swp
+
 ## Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
