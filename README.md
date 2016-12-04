@@ -1,5 +1,9 @@
 # Tacklebox
-Tacklebox is a configuration manager for people working on multiple computers. It handles:
+
+**Tacklebox is a _cross-platform_ configuration manager for people working on multiple computers.**
+
+
+It handles:
 * Making your local settings portable
 * Updating any changes you make to your settings back into your collection
 * Backing up anyone else's local settings while you work
@@ -13,7 +17,7 @@ Tacklebox uses git as a backend. Any changes you make will be pushed back into y
 tackle
 # (usage)
 
-tackle hook all
+tackle hook --all
 # stages all baits (packages)
 tackle hook vimrc
 # stages vimrc, backing up the previous one if it exists

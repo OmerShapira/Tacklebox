@@ -1,0 +1,6 @@
+captured_name = "This has to exist"
+friendly_name = "Name you actually want to display"
+#TODO (OS): Add some kind of way to track the git commit fingerprint
+
+[target]
+root="../../Relative/Path/To/Thing"
