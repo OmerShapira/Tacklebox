@@ -1,0 +1,13 @@
+# User Config Schema
+# all labels are lowercase.
+version = "0.1"
+
+[repo]
+active= 'main'
+
+    [repo.main]
+    root='C:\Users\omer\My_Tacklebox'
+    type="git"
+
+[bait]
+    [bait.home]
