@@ -60,110 +60,6 @@ class Folder(object):
         return l_files + l_dirs
 
 
-class UserConfigFolder(object):
-    """Docstring for UserConfigFolder"""
-    def __init__(self, repo_path):
-        # The root will only be at the user root for now.
-        path = os.path.join(os.path.expanduser(consts.USER_CONFIG_HOME), consts.USER_CONFIG_FOLDER_NAME)
-
-        self.folder = Folder(path)
-        self.backup_folder_name = consts.BACKUP_DIR_NAME + consts.CONFIG_EXTENSION_CURRENT
-        self.config_file_name = consts.USER_CONFIG_FILE_NAME
-        self.config_file = UserConfigFile(self, repo_path)
-
-    def exists(self):
-        """Check if:
-        * Folder Exists
-        * Configuration file exists
-        """
-        return self.folder.exists() and self.config_file.exists()
-
-    def ensure_exists(self):
-        if self.exists() and self.is_valid():
-            return
-        else:
-            self.create()
-
-    def is_valid(self):
-        """Check if:
-        * The folder, files exist
-        * The git repo it is referring to exists
-        * The location is read/write accessible
-        """
-        ret = True
-        ret &= self.exists()
-        ret &= self.config_file.is_valid() 
-        ret &= os.access(self.folder.path, os.R_OK)
-        ret &= os.access(self.folder.path, os.W_OK)
-        return ret
-
-    def create(self):
-        """Crates a new folder. If an old one exists, pushes it to backup."""
-        # Set up root
-        self.folder.ensure_exists()
-        # Clean up previous backups, if they exist
-        self.push_backup()
-        # Set up backup
-        self.folder.child(self.backup_folder_name).ensure_exists()
-        self.config_file.create()
-
-    def destroy(self):
-        self.pop_backup()
-        #TODO (OS): check if folder needs to be removed
-
-    def push_backup(self):
-        """
-        If a backup folder exists, moves the configuration file into it,
-        and upadtes the name to be the latest archived backup.
-        Does not create new backup folder.
-        """
-        master = self.folder.child(self.backup_folder_name)
-        if not master.exists():
-            return
-        #find latest
-        next_archived_backup = self.find_latest_backup_number() + 1
-        # move config file into backup folder
-        # TODO (OS): move config file into backup
-        archived_backup_folder_name = "%s.%02d" % ( consts.BACKUP_DIR_NAME, next_archived_backup )
-        master.rename(archived_backup_folder_name)
-
-    def pop_backup(self):
-        """
-        If an archived folder exists, deletes the current backup folder and configuration file,
-        and replaces them with the most recent archived backup and
-        configuration file inside the archived backup.
-        """
-        archive_num = self.find_latest_backup_number()
-        if archive_num == 0:
-            return
-        archived_backup_folder_name = consts.BACKUP_DIR_NAME + "." + archive_num
-        archived_backup_folder = self.folder.child(archived_backup_folder_name)
-        if not archived_backup_folder.exists():
-            return
-        # remove current setup
-        self.folder.child(self.backup_folder_name).delete()
-        # make the latest one "current"
-        archived_backup_folder.rename(self.backup_folder_name)
-        # will return false if can't complete
-
-    def find_latest_backup_number(self):
-        """
-        Scans the backup folders to see if previous backups exist.
-        Unable to detect different versions of file and folder.
-        """
-        names = [n for n in self.folder.child_names(files=False)
-                    if (n.startswith(consts.BACKUP_DIR_NAME)
-                    and not n.endswith(consts.CONFIG_EXTENSION_CURRENT))]
-        highest_num = 0
-        for name in names:
-            #take last string beyond point
-            numstr = name.split(".")[-1]
-            try:
-                highest_num = max(highest_num, int(numstr))
-            except E:
-                pass
-        return highest_num
-
 ## Some Decorators
 
 def reload_if_stale(fn):
@@ -184,7 +80,7 @@ def check_lock_mark_dirty(fn):
     return checked
 
 
-class ConfigFile(MutableMapping):
+class MemoryMappedTOMLFile(MutableMapping):
     """Efficient disk-mapped TOML file wrapper"""
     def __init__(self, path):
         self.path = path
@@ -233,11 +129,35 @@ class ConfigFile(MutableMapping):
             self.__db = toml.load(f)
             self.__last_load = time()
 
+    def save_if_dirty(self):
+        if self.dirty:
+            self.lock = False
+            with open(self.path, 'w') as f:
+                self.__db = toml.dump(self.__db, f)
+                self.dirty = False
+            self.lock = True
+
     def clear(self):
         """deletes both the cache and the disk file contents. leaves an empty file
         creates an empty file if didn't exist."""
         with self.mutable():
+            #TODO (OS): Will not mark as dirty without excplicityly stating
             self.__db = {}
+            self.dirty = True
+
+    def copy_to(self, path):
+        real_path = os.path.realpath(path)
+        shutil.copy(self.path, real_path)
+
+    def read_from(self,path):
+        """If `path` exists, erases current file (if exists) and rewrite a new one"""
+        real_path = os.path.realpath(path)
+        if not (os.path.exists(real_path) and os.access(real_path, os.R_OK)):
+            raise IOError(real_path + "Does not exist or is not accessible")
+        if os.path.exists(self.path):
+            #NOTE (OS): Will not delete directories
+            os.remove(self.path)
+        shutil.copyfile(real_path, self.path)
 
     def is_stale(self):
         if not self.exists():
@@ -251,62 +171,17 @@ class ConfigFile(MutableMapping):
         if self.is_stale():
             try:
                 self.load()
-            except IOError as E:
+            except IOError:
                 #All this means is the file doesn't exist, we just create one
                 pass
         self.lock = False
         yield self
-        with open(self.path, 'w') as f:
-            self.__db = toml.dump(self.__db, f)
-        self.lock = True
-        self.dirty = False
-
+        self.save_if_dirty()
 
 class BaitConfigFile(ConfigFile):
     def __init__(self, path):
         # Find if is local root
         super(BaitConfigFile, self).__init__(path)
-
-class UserConfigFile(ConfigFile):
-    '''refers to user config file only by name.
-    performs atomic actions and keeps file closed.'''
-    def __init__(self, config_folder, repo_path):
-        self.config_folder = config_folder
-        path = os.path.join( self.config_folder.folder.path, consts.USER_CONFIG_FILE_NAME)
-        super(UserConfigFile, self).__init__(path)
-        #TODO (OS): remove coupling
-        self.repo_path = repo_path
-
-    def create(self):
-        #TODO(OS): use schema
-        with self.mutable():
-            self['version'] = consts.VERSION
-            self['repo'] = {}
-            self['repo']['active'] = 'master'
-            self['repo']['master'] = {}
-            self['repo']['master']['root'] = self.repo_path
-            self['repo']['master']['type'] = 'git'
-
-
-    def is_valid(self):
-        if not self.does_point_to_git_repo():
-            return False
-        try:
-            pv, fv = consts.VERSION, self['version']
-            assert pv == fv, "Config file version ("+fv+") does not match the program version ("+pv+")"
-            root = self['repo']['master']['root']
-            assert is_git_repo(root), root + " is not a git repo"
-        except AssertionError as E:
-            print "Error: " + str(E)
-            return False
-        except ( ValueError, Exception ) as E:
-            print "Unknown Error: " + str( E )
-            return False
-        return True
-
-    def does_point_to_git_repo(self):
-        """Checks only by name. If you're gonna play evil, I'm not going to catch it."""
-        return is_git_repo(self.repo_path)
 
 def is_git_repo(path):
     repo_path = os.path.join(path, ".git")
