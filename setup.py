@@ -13,6 +13,8 @@ setup(name='tacklebox',
       packages=['tacklebox'],
       install_requires=[
           'toml',
-          'GitPython'
+          'GitPython',
+          'argcomplete'
+          'prompt_toolkit'
       ],
       zip_safe=False)

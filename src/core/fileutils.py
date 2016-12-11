@@ -1,5 +1,7 @@
 """File and Folder wrappers"""
 import os
+import sys
+import ctypes
 from contextlib import contextmanager
 from collections import MutableMapping
 import shutil #used for rmtree
@@ -8,6 +10,26 @@ from time import time
 import toml
 
 from consts import consts
+
+
+## Some Decorators
+
+def reload_if_stale(fn):
+    """Decorator to reload a protected file before exposing values"""
+    def fresh(self, *args):
+        if self.is_stale() and not self.lock:
+            self.load()
+        return fn(self, *args)
+    return fresh
+
+def check_lock_mark_dirty(fn):
+    """Decorator to allow protected file access"""
+    def checked(self, *args):
+        if self.lock:
+            return ValueError("Object is locked. use .mutable instead")
+        fn(self, *args)
+        self.dirty = True
+    return checked
 
 
 class Folder(object):
@@ -59,25 +81,11 @@ class Folder(object):
         l_dirs  = [] if not dirs  else [d for d in raw if os.path.isdir(d)]
         return l_files + l_dirs
 
+    def folder_name(self):
+        if not self.exists():
+            return None
+        return  os.path.relpath(self.path, self.parent().path)
 
-## Some Decorators
-
-def reload_if_stale(fn):
-    """Decorator to reload a protected file before exposing values"""
-    def fresh(self, *args):
-        if self.is_stale() and not self.lock:
-            self.load()
-        return fn(self, *args)
-    return fresh
-
-def check_lock_mark_dirty(fn):
-    """Decorator to allow protected file access"""
-    def checked(self, *args):
-        if self.lock:
-            return ValueError("Object is locked. use .mutable instead")
-        fn(self, *args)
-        self.dirty = True
-    return checked
 
 
 class MemoryMappedTOMLFile(MutableMapping):
@@ -178,14 +186,59 @@ class MemoryMappedTOMLFile(MutableMapping):
         yield self
         self.save_if_dirty()
 
-class BaitConfigFile(ConfigFile):
-    def __init__(self, path):
-        # Find if is local root
-        super(BaitConfigFile, self).__init__(path)
-
 def is_git_repo(path):
     repo_path = os.path.join(path, ".git")
     if not os.path.exists(repo_path):
         return False
     #TODO (OS): actually check repo
     return True
+
+
+def is_read_write_accessible(path):
+    """Should only be used as a sanity check.
+    see: https://docs.python.org/2/library/os.html
+    """
+    return os.access(path, os.R_OK or os.W_OK)
+
+def get_free_disk_space_bytes(path):
+    drive, _ = os.path.splitdrive(os.path.realpath(path)) 
+    if sys.platform is "win32":
+        free_bytes_avil = ctypes.c_ulong()
+        total_bytes = ctypes.c_ulong()
+        total_free_bytes = ctypes.c_ulong()
+        ctypes.windll.kernel32.GetFreeDiskSpaceExA(
+            drive,
+            ctypes.byref(free_bytes_avil),
+            ctypes.byref(total_bytes),
+            ctypes.byref(total_free_bytes))
+        return total_free_bytes.value
+    elif (sys.platform.startswith("linux") or sys.platform in [ "darwin", "cygwin" ]):
+        stat = os.statvfs(drive)
+        # http://stackoverflow.com/questions/787776/find-free-disk-space-in-python-on-os-x
+        return (stat.f_bavail * stat.f_frsize) / 1024
+    else:
+        #OS not recognised?
+        raise Exception ("OS not recognised")
+
+def check_size_before_transfer(path_src, path_dst):
+    """
+    Check if the transfer is safe to perform.
+    Will prompt the user if the file sizes exceed limits set in 'consts.py'
+    Returns (result, reason) where result is boolean and reason is a message.
+    """
+    size_src = os.path.getsize(path_src)
+    free_dst = get_free_disk_space_bytes(path_dst)
+    SCALE_MB = 1<<20
+    size_mb = size_src / SCALE_MB
+    free_mb = free_dst / SCALE_MB
+    if size_src > free_dst:
+        msg = "This will require %d MB of space, but the destination drive\
+        only has %d MB available" % size_mb, free_mb
+        return False, msg
+    if size_mb + consts.WARN_IF_DESTINATION_SPACE_AFTER_LE_MB >= free_mb:
+        #TODO (OS): Should prompt here
+        raise NotImplementedError
+    if size_mb >= consts.WARN_IF_SIZE_GE_MB:
+        #TODO (OS): SHould prompt here
+        raise NotImplementedError
+    return True, ""

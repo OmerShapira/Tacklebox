@@ -10,7 +10,7 @@ import argparse
 # import argcomplete 
 
 # Modules
-from commands import config, mvactions
+import commands 
 
 def halt_if_admin():
     """Quits if the user is admin."""
@@ -42,25 +42,33 @@ def create_parser():
         help="remove existing configurations, if they exist, installing a new one. \
         This option will delete the tacklebox project, but leave files in place")
     parser_config.set_defaults(
-        func=config.config)
+        func=commands.config.config)
 
     parser_hook = subparsers.add_parser(
         'hook',
         help="put an asset in place, backing up the old one, if it exists")
     parser_hook.add_argument(
-        'config_name',
+        'bait_name',
         type=str,
         action='store')
     parser_hook.add_argument(
         '--path',
         type=str,
         action='store')
+    parser_hook.set_defaults(
+        func=commands.staging.hook)
 
     parser_unhook = subparsers.add_parser(
         'unhook',
         help="remove an asset, restore the previous one from backup if possible")
     parser_unhook.add_argument(
         'config_name')
+    parser_unhook.add_argument(
+        '--norestore',
+        action='store_true',
+        help="flag for not restoring backup")
+    parser_unhook.set_defaults(
+        func=commands.staging.unhook)
 
     parser_fetch = subparsers.add_parser(
         'fetch',
@@ -76,6 +84,8 @@ def create_parser():
         'collect',
         help="adds a deployed asset into the repository and pushes to the\
         remote repository, if exists.")
+    parser_collect.set_defaults(
+        func=commands.staging.collect)
 
     parser_snip = subparsers.add_parser(
         'snip',

@@ -76,6 +76,16 @@ class UserConfigFolder(object):
         self.config_file_name = consts.USER_CONFIG_FILE_NAME
         self.config_file = UserConfigFile(self, repo_path)
 
+    def load(self):
+        """
+        Attempt to load, fail if fucked
+        """
+        result, err =  self.is_valid()
+        if result:
+            return self
+        else:
+            exit (err)
+
     def exists(self):
         """Check if:
         * Folder Exists
@@ -94,6 +104,7 @@ class UserConfigFolder(object):
         * The folder, files exist
         * The git repo it is referring to exists
         * The location is read/write accessible
+        TODO (OS): Improve error messages
         """
         if not self.exists():
             return False, "Config folder does not exist"
@@ -195,3 +206,11 @@ class UserConfigFolder(object):
                 pass
         return highest_num
 
+    def get_bait_config(self, bait_name):
+        """Searches for a bait in the active repo. If none exist, returns `None`."""
+        child = self.folder.child(bait_name)
+        if not child.exists():
+            return None
+        bait = Bait(child.path)
+        #TODO (OS): Determine if this is a legitimate 
+        return bait
