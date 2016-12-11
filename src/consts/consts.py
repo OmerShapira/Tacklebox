@@ -1,8 +1,12 @@
 """Consts for Tacklebox"""
+
+VERSION = "0.1"
 BAIT_FILE_NAME = ".tacklebait"
 USER_CONFIG_FOLDER_NAME = ".tacklebox"
 USER_CONFIG_FILE_NAME = ".tackleboxconfig"
 BACKUP_DIR_NAME = ".tackleback"
 CONFIG_EXTENSION_CURRENT = ".current"
 USER_CONFIG_HOME = "~"
-VERSION = "0.1"
+
+WARN_IF_SIZE_GE_MB = 10
+WARN_IF_DESTINATION_SPACE_AFTER_LE_MB = 1024
