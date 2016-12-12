@@ -1,6 +1,7 @@
 # User Config Schema
 # all labels are lowercase.
 version = "0.1"
+platform_name="win"
 
 [repo]
 active= 'main'
@@ -11,6 +12,7 @@ active= 'main'
 
 [bait]
     [bait.home]
+    root=""
     # Only put in this list stuff that should be destroyed when the setup is cleaned
     # Upon Removal, Tacklebox will visit every path and delete only the leaf
     # (file or last folder)
