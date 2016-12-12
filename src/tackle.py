@@ -10,7 +10,7 @@ import argparse
 # import argcomplete 
 
 # Modules
-import commands 
+from commands import staging, config
 
 def halt_if_admin():
     """Quits if the user is admin."""
@@ -42,7 +42,7 @@ def create_parser():
         help="remove existing configurations, if they exist, installing a new one. \
         This option will delete the tacklebox project, but leave files in place")
     parser_config.set_defaults(
-        func=commands.config.config)
+        func=config.config)
 
     parser_hook = subparsers.add_parser(
         'hook',
@@ -52,11 +52,19 @@ def create_parser():
         type=str,
         action='store')
     parser_hook.add_argument(
-        '--path',
+        '--platform',
         type=str,
         action='store')
+    parser_hook.add_argument(
+        '--target',
+        type=str,
+        action='store')
+    parser_hook.add_argument(
+        '--push',
+        type=str,
+        action='store_true')
     parser_hook.set_defaults(
-        func=commands.staging.hook)
+        func=staging.hook)
 
     parser_unhook = subparsers.add_parser(
         'unhook',
@@ -68,7 +76,7 @@ def create_parser():
         action='store_true',
         help="flag for not restoring backup")
     parser_unhook.set_defaults(
-        func=commands.staging.unhook)
+        func=staging.unhook)
 
     parser_fetch = subparsers.add_parser(
         'fetch',
@@ -85,7 +93,7 @@ def create_parser():
         help="adds a deployed asset into the repository and pushes to the\
         remote repository, if exists.")
     parser_collect.set_defaults(
-        func=commands.staging.collect)
+        func=staging.collect)
 
     parser_snip = subparsers.add_parser(
         'snip',
