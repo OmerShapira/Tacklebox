@@ -202,7 +202,7 @@ def is_read_write_accessible(path):
 
 def get_free_disk_space_bytes(path):
     drive, _ = os.path.splitdrive(os.path.realpath(path)) 
-    if sys.platform is "win32":
+    if os.name is 'nt':
         free_bytes_avil = ctypes.c_ulong()
         total_bytes = ctypes.c_ulong()
         total_free_bytes = ctypes.c_ulong()
@@ -212,7 +212,7 @@ def get_free_disk_space_bytes(path):
             ctypes.byref(total_bytes),
             ctypes.byref(total_free_bytes))
         return total_free_bytes.value
-    elif (sys.platform.startswith("linux") or sys.platform in [ "darwin", "cygwin" ]):
+    elif os.name is 'posix':
         stat = os.statvfs(drive)
         # http://stackoverflow.com/questions/787776/find-free-disk-space-in-python-on-os-x
         return (stat.f_bavail * stat.f_frsize) / 1024
