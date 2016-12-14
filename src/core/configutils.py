@@ -1,9 +1,11 @@
 """
 Configuration managers and helpers
 """
-import consts
 import os
+
 from core.fileutils import Folder, MemoryMappedTOMLFile, is_git_repo
+from core.bait import BaitFolder
+from consts import consts
 
 class UserConfigFile(MemoryMappedTOMLFile):
     '''refers to user config file only by name.
@@ -29,12 +31,6 @@ class UserConfigFile(MemoryMappedTOMLFile):
             self['repo']['master']['root'] = self.repo_path
             self['repo']['master']['type'] = 'git'
 
-    def archive_to(self, abs_path_backup_folder):
-        """
-        Copies the file to a backup folder. Will fail if file exists.
-        config file will still point to same place.
-        """
-
     def is_valid(self):
         if not self.does_point_to_git_repo():
             return False
@@ -59,20 +55,18 @@ class UserConfigFile(MemoryMappedTOMLFile):
         return is_git_repo(self.repo_path)
 
 
-class BaitConfigFile(MemoryMappedTOMLFile):
-    def __init__(self, path):
-        # Find if is local root
-        super(BaitConfigFile, self).__init__(path)
-
 
 class UserConfigFolder(object):
     """Docstring for UserConfigFolder"""
+    #TODO (OS): Make singleton
     def __init__(self, repo_path):
         # The root will only be at the user root for now.
         path = os.path.join(os.path.expanduser(consts.USER_CONFIG_HOME), consts.USER_CONFIG_FOLDER_NAME)
 
         self.folder = Folder(path)
         self.backup_folder_name = consts.BACKUP_DIR_NAME + consts.CONFIG_EXTENSION_CURRENT
+        #TODO (OS): populate this convenience method
+        self.backup_folder_path = os.path.join(path, self.backup_folder_name)
         self.config_file_name = consts.USER_CONFIG_FILE_NAME
         self.config_file = UserConfigFile(self, repo_path)
 
@@ -211,6 +205,6 @@ class UserConfigFolder(object):
         child = self.folder.child(bait_name)
         if not child.exists():
             return None
-        bait = Bait(child.path)
+        bait = BaitFolder(child.path)
         #TODO (OS): Determine if this is a legitimate 
         return bait

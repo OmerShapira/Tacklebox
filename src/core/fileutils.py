@@ -242,3 +242,17 @@ def check_size_before_transfer(path_src, path_dst):
         #TODO (OS): SHould prompt here
         raise NotImplementedError
     return True, ""
+
+def copy_files_list_results(src, dst):
+    """Copies tree and returns a list of copied files (absolute path) and errors"""
+    src = os.path.realpath(src)
+    dst = os.path.realpath(dst)
+    copied_files = []
+    errors = []
+
+    names = os.listdir(src)
+    
+    #TODO (OS): FINISH THIS
+
+    return copied_files, errors
+
