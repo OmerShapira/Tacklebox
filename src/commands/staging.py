@@ -59,7 +59,7 @@ def hook(args):
     # dump list to config
     with config_folder.config_file.mutable():
         #FIXME (OS): UNSAFE WITHOUT CHECKING CONTENTS FIRST!
-        config_folder.config_file['bait'][args.bait_name][paths_created] = copied_files
+        config_folder.config_file['bait'][args.bait_name]['paths_created'] = copied_files
 
 
 def unhook(args):
