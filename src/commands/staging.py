@@ -1,5 +1,5 @@
 """
-Commands for staging: hook, unhook
+Commands for staging: hook, unhook, collect
 """
 from core import fileutils
 from core.configutils import UserConfigFolder
@@ -54,12 +54,12 @@ def hook(args):
             raise NotImplementedError("Implement backup")
 
     #create all files in list, storing created files in cleanup list inside config
-    # TODO (OS): Continue based on shutil.copytree
-    # created_files_abs_path=[]
-    # files_to_copy = []
-
     # copy files, update list
+    copied_files, errors = fileutils.copy_files_list_results(bait_cfg.path, target_path)
     # dump list to config
+    with config_folder.config_file.mutable():
+        #FIXME (OS): UNSAFE WITHOUT CHECKING CONTENTS FIRST!
+        config_folder.config_file['bait'][args.bait_name][paths_created] = copied_files
 
 
 def unhook(args):

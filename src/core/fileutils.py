@@ -250,9 +250,52 @@ def copy_files_list_results(src, dst):
     copied_files = []
     errors = []
 
+    assert os.path.isdir(src), src + " is not a directory"
+
     names = os.listdir(src)
-    
-    #TODO (OS): FINISH THIS
+
+    for name in names:
+        src_child = os.path.join(src, name)
+        dst_child = os.path.join(dst, name)
+
+        assert not os.path.islink(src_child)
+
+        if os.path.isdir(src_child):
+            if not os.path.exists(dst_child):
+                try:
+                    os.path.makedirs(dst_child)
+                    copied_files.append(dst_child)
+                except OSError as E:
+                    errors.append(E)
+            cf, err = copy_files_list_results(src_child, dst_child)
+            copied_files.extend(cf)
+            errors.extend(err)
+        else:
+            assert os.path.isfile(src_child)
+            try:
+                shutil.copyfile(src_child, dst_child)
+                copied_files.append(dst_child)
+            except (Error, shutil.SpecialFileError) as E:
+                errors.append(E)
 
     return copied_files, errors
+
+def remove_files(lst):
+    #TODO (OS): return list of errors
+    folders = []
+    for path in lst:
+        assert not os.path.islink(path)
+        if os.path.isdir(path):
+            folders.append(path)
+        else:
+            os.remove(path)
+    if not len(folders):
+        return
+    common_path = os.path.commonprefix(folders)
+    prev_dir = os.getcwd()
+    os.chdir(common_path)
+    for folder in folders:
+        relpath = os.path.relpath(folder, common_path)
+        shutil.rmtree(relpath)
+    os.chdir(prev_dir)
 
