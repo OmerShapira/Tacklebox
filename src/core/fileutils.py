@@ -281,14 +281,18 @@ def copy_files_list_results(src, dst):
     return copied_files, errors
 
 def remove_files(lst):
-    #TODO (OS): return list of errors
+    """removes all files in a list, returns a list of files not removed"""
     folders = []
+    unsuccessful = []
     for path in lst:
         assert not os.path.islink(path)
         if os.path.isdir(path):
             folders.append(path)
         else:
-            os.remove(path)
+            try:
+                os.remove(path)
+            except OSError:
+                unsuccessful.append(path)
     if not len(folders):
         return
     common_path = os.path.commonprefix(folders)
@@ -296,6 +300,10 @@ def remove_files(lst):
     os.chdir(common_path)
     for folder in folders:
         relpath = os.path.relpath(folder, common_path)
-        shutil.rmtree(relpath)
+        try:
+            shutil.rmtree(relpath)
+        #TODO (OS): Check this is the error to catch
+        except OSError:
+            unsuccessful.append(path)
     os.chdir(prev_dir)
-
+    return unsuccessful
